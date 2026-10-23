@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app import database
 from app.database import engine, Base, SessionLocal
 from app.api.api_router import api_router
 from app.services.seed_service import seed_database
@@ -22,8 +23,9 @@ async def lifespan(app: FastAPI):
             seed_database(db)
         finally:
             db.close()
-    except Exception:
+    except Exception as exc:
         logger.exception("Database initialization failed")
+        database.DATABASE_INIT_ERROR = database.DATABASE_INIT_ERROR or f"{type(exc).__name__}: {exc}"
 
     # Launch background automation loop (runs silently in background)
     auto_task = asyncio.create_task(run_periodic_automation(interval_seconds=1800, initial_delay=5))

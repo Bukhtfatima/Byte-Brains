@@ -19,6 +19,10 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
 
+    from app import database
+    if database.DATABASE_INIT_ERROR:
+        db_status = f"unhealthy: {database.DATABASE_INIT_ERROR}"
+
     return {
         "status": "online" if db_status == "healthy" else "degraded",
         "service": settings.PROJECT_NAME,

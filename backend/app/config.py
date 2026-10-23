@@ -44,9 +44,12 @@ class Settings(BaseSettings):
                     value = os.environ[key]
                     break
 
-        # SQLAlchemy 2 rejects the legacy "postgres://" scheme
-        if value.startswith("postgres://"):
-            value = "postgresql://" + value[len("postgres://"):]
+        # SQLAlchemy 2 rejects the legacy "postgres://" scheme, and 2.1 defaults
+        # plain "postgresql://" to psycopg 3; this project ships psycopg2
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                value = "postgresql+psycopg2://" + value[len(prefix):]
+                break
 
         # Vercel's filesystem is read-only except /tmp (data there is not persistent)
         if value.startswith("sqlite") and os.environ.get("VERCEL"):
