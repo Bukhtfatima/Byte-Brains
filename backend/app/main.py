@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,16 +9,21 @@ from app.api.api_router import api_router
 from app.services.seed_service import seed_database
 from app.services.automation_service import run_periodic_automation
 
+logger = logging.getLogger("bloodbridge.startup")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables and seed demo dataset
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+    # Startup: ensure tables and seed demo dataset. A database failure is logged
+    # instead of crashing, so /health can still report the error.
     try:
-        seed_database(db)
-    finally:
-        db.close()
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            seed_database(db)
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("Database initialization failed")
 
     # Launch background automation loop (runs silently in background)
     auto_task = asyncio.create_task(run_periodic_automation(interval_seconds=1800, initial_delay=5))
