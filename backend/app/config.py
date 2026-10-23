@@ -34,5 +34,25 @@ class Settings(BaseSettings):
         "extra": "ignore",
     }
 
+    @field_validator("DATABASE_URL", mode="after")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        # Vercel/Neon integrations may expose the URL under a different name
+        if value.startswith("sqlite"):
+            for key in ("POSTGRES_URL", "STORAGE_URL", "NEON_DATABASE_URL"):
+                if os.environ.get(key):
+                    value = os.environ[key]
+                    break
+
+        # SQLAlchemy 2 rejects the legacy "postgres://" scheme
+        if value.startswith("postgres://"):
+            value = "postgresql://" + value[len("postgres://"):]
+
+        # Vercel's filesystem is read-only except /tmp (data there is not persistent)
+        if value.startswith("sqlite") and os.environ.get("VERCEL"):
+            value = "sqlite:////tmp/bloodbridge.db"
+
+        return value
+
 
 settings = Settings()
